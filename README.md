@@ -37,7 +37,19 @@ To stay up to date on the progress of this project, feel free to follow the disc
 	
 	Furthermore, the addin also extends the VB6 IDE with several quality of life features to improve usability.
 	
-	The source code for the addin is also available and included for your enjoyment.
+	Here are some of the key features added by this addin:
+	
+	- Replaces all the original default VB toolbars for custom toolbars with high quality icons.
+	- All the icons for the context menus are replaced with high quality versions.
+	- Enables Custom Layouts so that whenever you switch between Code and Design Views, all the relevant panels are displayed or hidden as required.
+	- Allows for the gauge control's position to be manipulated so it can be docked in different configurations
+	- Creates and maintains an additional toolbar on the right corner of the screen that allows for all the IDE's panels to be easily shown or hidden on demand, as well as allowing for the custom layouts feature to be activated.
+	- Maintains a separate hybrid Debug toolbar on the left corner of the screen that is used for debugging your project since the main Debug toolbar is completely replaced and the VB6 IDE disables all add-in toolbars when the project is executed.
+	- Allows for hiding unecessary obtrusive toolbars that only take up space when the project is executed, and restores them again once execution is terminated.
+	
+	Additional features are being considered for inclusion such as automatic backups of project files, as well as replacing the default icons for the native Project Explorer. If you'd like to see a new feature added, please post in the VBForums thread above. If you find any issues with the addin, either post in the thread or open an Issue here in Github and I'll look into it.
+		
+	The full source code for the addin is also available in this repository for your enjoyment.
 	
 3. Patch files for VB6.exe, VBA6.dll and VBIDE.dll files. Here is the full list of changes enabled by these patches:
 
