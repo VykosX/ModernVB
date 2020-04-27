@@ -16,6 +16,11 @@ new custom toolbars and many addins that unlock a great deal of extra functional
 
 All for the low-low price of absolutely nothing at all! :D
 
+**However, if you do find this modpack/add-in useful please consider donating.**
+
+I'm a student doing this as a hobby, so any amount is greatly appreciated and helps immensely!
+You may donate through the following link: https://www.paypal.me/ModernVB
+
 To stay up to date on the progress of this project, feel free to follow the discussion thread on the VBForums, where you can additionally find many more screenshots: http://www.vbforums.com/showthread.php?885405-Modernizing-the-VB6-IDE
 
 ---
