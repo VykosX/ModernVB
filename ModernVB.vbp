@@ -1,0 +1,56 @@
+Type=OleDll
+Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#C:\Windows\SysWOW64\stdole2.tlb#OLE Automation
+Reference=*\G{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}#2.0#0#C:\Windows\SysWow64\MSO97RT.DLL#Microsoft Office 8.0 Object Library
+Reference=*\G{AC0714F2-3D04-11D1-AE7D-00A0C90F26F4}#1.0#0#C:\Program Files (x86)\Common Files\designer\MSADDNDR.TLB#Add-In Designer/Instance Control Library
+Reference=*\G{EF404E00-EDA6-101A-8DAF-00DD010F7EBB}#5.3#0#C:\Program Files (x86)\Microsoft Visual Basic 6.0\VB98\VB6EXT.OLB#Microsoft Visual Basic 6.0 Extensibility
+Reference=*\G{3D5C6BF0-69A3-11D0-B393-00A0C9055D8E}#1.0#0#C:\Program Files (x86)\Common Files\DESIGNER\MSDERUN.DLL#Microsoft Data Environment Instance 1.0
+Reference=*\G{00000205-0000-0010-8000-00AA006D2EA4}#2.5#0#C:\Program Files (x86)\Common Files\System\ado\msado25.tlb#Microsoft ActiveX Data Objects 2.0 Library
+Class=CEventHandler; Class Modules\CEventHandler.cls
+Module=modIcons; Modules\modIcons.bas
+Module=modGeneral; Modules\modGeneral.bas
+Form=Forms\frmAbout.frm
+Designer=Connection\Connect.Dsr
+Module=modClipboard; Modules\modClipboard.bas
+ResFile32="Resources\icons.res"
+IconForm="frmAbout"
+Startup="(None)"
+HelpFile=""
+Title="ModernVB"
+ExeName32="ModernVB.dll"
+Path32="..\Release"
+Command32=""
+Name="ModernVB"
+HelpContextID="0"
+Description="Updates the Visual Basic IDE to look more modern."
+CompatibleMode="0"
+CompatibleEXE32="ModernVB.dll"
+MajorVer=1
+MinorVer=6
+RevisionVer=0
+AutoIncrementVer=0
+ServerSupportFiles=0
+VersionLegalCopyright="© 2016-2020, VykosX"
+VersionProductName="ModernVB Add-in v1.6"
+CondComp="CLIPBOARD_BACKUP = 1 : DEBUG_MODE = 0"
+CompilationType=0
+OptimizationType=0
+FavorPentiumPro(tm)=0
+CodeViewDebugInfo=0
+NoAliasing=0
+BoundsCheck=0
+OverflowCheck=0
+FlPointCheck=0
+FDIVCheck=0
+UnroundedFP=0
+StartMode=1
+Unattended=0
+Retained=0
+ThreadPerObject=0
+MaxNumberOfThreads=1
+DebugStartupOption=0
+
+[fastBuild]
+fullPath=D:\Personal\Projects\Wolfie\Programming\Visual Basic\Full Programs\ModernVB\Add-in\v1.5\Release\ModernVB.dll
+
+[CodeSMART]
+Task_UID=18_04_20_18_06_31
