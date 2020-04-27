@@ -67,7 +67,7 @@ To stay up to date on the progress of this project, feel free to follow the disc
 
 
 
-Well, that's it for now!
+**Well, that's it for now!**
 
 I hope this pack of modifications is useful for other coders and ultimately contributes to revitalizing our love of
 this fantastic, yet sadly forgotten language! Honestly, the VB6 IDE is both extremely robust and well designed.
