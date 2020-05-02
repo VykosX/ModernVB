@@ -97,8 +97,8 @@ For now, we can only dream and hope our efforts might one day inspire such a glo
 **Some Screenshots:**
 
 <p>
-<img src=https://raw.githubusercontent.com/VykosX/ModernVB/master/ModernVB - Code View.jpg>
-<img src=https://raw.githubusercontent.com/VykosX/ModernVB/master/ModernVB - Design View.jpg>
+<img src=https://raw.githubusercontent.com/VykosX/ModernVB/master/ModernVB%20-%20Code%20View.jpg>
+<img src=https://raw.githubusercontent.com/VykosX/ModernVB/master/ModernVB%20-%20Design%20View.jpg>
 </p>
 ---
 
