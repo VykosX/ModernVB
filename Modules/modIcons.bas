@@ -49,7 +49,7 @@ Private Declare Function SelectObject Lib "gdi32" (ByVal hdc As Long, ByVal hObj
 Private Declare Function DeleteObject Lib "gdi32" (ByVal hObject As Long) As Long
 Private Declare Function SetBkColor Lib "gdi32" (ByVal hdc As Long, ByVal crColor As Long) As Long
 Private Declare Function SetTextColor Lib "gdi32" (ByVal hdc As Long, ByVal crColor As Long) As Long
-Private Declare Function BitBlt Lib "gdi32" (ByVal hDestDC As Long, ByVal x As Long, ByVal y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hSrcDC As Long, ByVal xSrc As Long, ByVal ySrc As Long, ByVal dwRop As Long) As Long
+Private Declare Function BitBlt Lib "gdi32" (ByVal hDestDC As Long, ByVal X As Long, ByVal Y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hSrcDC As Long, ByVal xSrc As Long, ByVal ySrc As Long, ByVal dwRop As Long) As Long
 Private Declare Function CreateHalftonePalette Lib "gdi32" (ByVal hdc As Long) As Long
 Private Declare Function SelectPalette Lib "gdi32" (ByVal hdc As Long, ByVal hPalette As Long, ByVal bForceBackground As Long) As Long
 Private Declare Function RealizePalette Lib "gdi32" (ByVal hdc As Long) As Long
@@ -135,49 +135,6 @@ err_invalidarg:
     
 End Function
 
-' ===================================================================
-'  CreateButtonMask -- Internal helper function
-' ===================================================================
-
-Private Sub CreateButtonMask(ByVal hbmSource As Long, ByVal nMaskColor As Long, ByVal hdcTarget As Long, ByVal hPal As Long, ByRef hbmMask As Long)
-
-   Dim hdcSource As Long, hdcMask As Long, hbmSourceOld As Long, hbmMaskOld As Long, hpalSourceOld As Long, uBM As BITMAP
-
-   GetObjectAPI hbmSource, 24, uBM  ' Get some information about the bitmap handed to us.
-
- ' Check the size of the bitmap given.
-   If uBM.bmWidth < 1 Or uBM.bmWidth > 30000 Then Exit Sub
-   If uBM.bmHeight < 1 Or uBM.bmHeight > 30000 Then Exit Sub
-
- ' Create a compatible DC, load the palette and the bitmap.
-   hdcSource = CreateCompatibleDC(hdcTarget)
-   hpalSourceOld = SelectPalette(hdcSource, hPal, True)
-   
-   RealizePalette hdcSource: hbmSourceOld = SelectObject(hdcSource, hbmSource)
-
- ' Create a black and white mask the same size as the image.
-   hbmMask = CreateBitmap(uBM.bmWidth, uBM.bmHeight, 1, 1, ByVal 0)
-
- ' Create a compatble DC for it and load it.
-   hdcMask = CreateCompatibleDC(hdcTarget)
-   hbmMaskOld = SelectObject(hdcMask, hbmMask)
-
- ' All you need to do is set the mask color as the background color
- ' on the source picture, and set the forground color to white, and
- ' then a simple BitBlt will make the mask for you.
- 
-   SetBkColor hdcSource, nMaskColor: SetTextColor hdcSource, vbWhite
-   
-   BitBlt hdcMask, 0, 0, uBM.bmWidth, uBM.bmHeight, hdcSource, 0, 0, vbSrcCopy
-
- ' Clean up the memory DCs.
-   SelectObject hdcMask, hbmMaskOld: DeleteDC hdcMask
-
-   SelectObject hdcSource, hbmSourceOld: SelectObject hdcSource, hpalSourceOld
-   
-   DeleteDC hdcSource
-
-End Sub
 
 ' ===================================================================
 '  CopyButtonMaskToClipboard -- Internal helper function
@@ -248,5 +205,49 @@ Private Sub CopyButtonMaskToClipboard(ByVal hbmMask As Long, ByVal hdcTarget As 
    End If
  
    CloseClipboard
+
+End Sub
+
+' ===================================================================
+'  CreateButtonMask -- Internal helper function
+' ===================================================================
+
+Private Sub CreateButtonMask(ByVal hbmSource As Long, ByVal nMaskColor As Long, ByVal hdcTarget As Long, ByVal hPal As Long, ByRef hbmMask As Long)
+
+   Dim hdcSource As Long, hdcMask As Long, hbmSourceOld As Long, hbmMaskOld As Long, hpalSourceOld As Long, uBM As BITMAP
+
+   GetObjectAPI hbmSource, 24, uBM  ' Get some information about the bitmap handed to us.
+
+ ' Check the size of the bitmap given.
+   If uBM.bmWidth < 1 Or uBM.bmWidth > 30000 Then Exit Sub
+   If uBM.bmHeight < 1 Or uBM.bmHeight > 30000 Then Exit Sub
+
+ ' Create a compatible DC, load the palette and the bitmap.
+   hdcSource = CreateCompatibleDC(hdcTarget)
+   hpalSourceOld = SelectPalette(hdcSource, hPal, True)
+   
+   RealizePalette hdcSource: hbmSourceOld = SelectObject(hdcSource, hbmSource)
+
+ ' Create a black and white mask the same size as the image.
+   hbmMask = CreateBitmap(uBM.bmWidth, uBM.bmHeight, 1, 1, ByVal 0)
+
+ ' Create a compatble DC for it and load it.
+   hdcMask = CreateCompatibleDC(hdcTarget)
+   hbmMaskOld = SelectObject(hdcMask, hbmMask)
+
+ ' All you need to do is set the mask color as the background color
+ ' on the source picture, and set the forground color to white, and
+ ' then a simple BitBlt will make the mask for you.
+ 
+   SetBkColor hdcSource, nMaskColor: SetTextColor hdcSource, vbWhite
+   
+   BitBlt hdcMask, 0, 0, uBM.bmWidth, uBM.bmHeight, hdcSource, 0, 0, vbSrcCopy
+
+ ' Clean up the memory DCs.
+   SelectObject hdcMask, hbmMaskOld: DeleteDC hdcMask
+
+   SelectObject hdcSource, hbmSourceOld: SelectObject hdcSource, hpalSourceOld
+   
+   DeleteDC hdcSource
 
 End Sub

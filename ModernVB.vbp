@@ -11,6 +11,7 @@ Module=modGeneral; Modules\modGeneral.bas
 Form=Forms\frmAbout.frm
 Designer=Connection\Connect.Dsr
 Module=modClipboard; Modules\modClipboard.bas
+Module=modProjectExplorer; Modules\modProjectExplorer.bas
 ResFile32="Resources\icons.res"
 IconForm="frmAbout"
 Startup="(None)"
@@ -25,12 +26,13 @@ Description="Updates the Visual Basic IDE to look more modern."
 CompatibleMode="0"
 CompatibleEXE32="ModernVB.dll"
 MajorVer=1
-MinorVer=6
+MinorVer=7
 RevisionVer=0
 AutoIncrementVer=0
 ServerSupportFiles=0
+VersionFileDescription="ModernVB Add-in by VykosX"
 VersionLegalCopyright="© 2016-2020, VykosX"
-VersionProductName="ModernVB Add-in v1.6"
+VersionProductName="ModernVB Add-in v1.7"
 CondComp="CLIPBOARD_BACKUP = 1 : DEBUG_MODE = 0"
 CompilationType=0
 OptimizationType=0
@@ -50,7 +52,7 @@ MaxNumberOfThreads=1
 DebugStartupOption=0
 
 [fastBuild]
-fullPath=D:\Personal\Projects\Wolfie\Programming\Visual Basic\Full Programs\ModernVB\Add-in\v1.5\Release\ModernVB.dll
+fullPath=D:\Personal\Projects\Wolfie\Programming\Visual Basic\Full Programs\ModernVB\Add-in\v1.7\Release\ModernVB.dll
 
 [CodeSMART]
 Task_UID=18_04_20_18_06_31

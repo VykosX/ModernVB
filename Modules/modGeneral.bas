@@ -6,8 +6,7 @@ Option Explicit
 '#Const CLIPBOARD_BACKUP = 1
 '#Const DEBUG_MODE = 0
        
-Private Declare Function FindWindowEx Lib "user32.dll" Alias "FindWindowExA" (ByVal hWndParent As Long, ByVal hWndChildAfter As Long, ByVal lpszClass As String, ByVal lpszWindow As String) As Long
-Private Declare Function GetWindowRect Lib "user32.dll" (ByVal hWnd As Long, ByRef lpRect As RECT) As Long
+Private Declare Function FindWindowEx Lib "user32.dll" Alias "FindWindowExA" (ByVal hWndParent As Long, ByVal hWndChildAfter As Long, ByVal lpBUTTON_SIZEClass As String, ByVal lpBUTTON_SIZEWindow As String) As Long
 Private Declare Function SetWindowPos Lib "user32.dll" (ByVal hWnd As Long, ByVal hWndInsertAfter As Long, ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, ByVal wFlags As Long) As Long
 Private Declare Function SetParent Lib "user32" (ByVal hWndChild As Long, ByVal hWndNewParent As Long) As Long
 Private Declare Function RegOpenKey Lib "advapi32.dll" Alias "RegOpenKeyA" (ByVal hKey As Long, ByVal lpSubKey As String, phkResult As Long) As Long 'Opens a handle to the specified key
@@ -15,6 +14,9 @@ Private Declare Function RegCloseKey Lib "advapi32" (ByVal hKey As Long) As Long
 Private Declare Function RegQueryValueEx Lib "advapi32.dll" Alias "RegQueryValueExA" (ByVal hKey As Long, ByVal lpValueName As String, ByVal lpReserved As Long, lpType As Long, lpData As Any, lpcbData As Long) As Long 'Retrieves the data stored in the
 Private Declare Function RegSetValueEx Lib "advapi32.dll" Alias "RegSetValueExA" (ByVal hKey As Long, ByVal lpValueName As String, ByVal Reserved As Long, ByVal dwType As Long, lpData As Any, ByVal cbData As Long) As Long
 Private Declare Function EbMode Lib "vba6" () As Long
+Private Declare Function GetWindow Lib "user32.dll" (ByVal hWnd As Long, ByVal wCmd As Long) As Long
+Private Declare Function GetClassName Lib "user32.dll" Alias "GetClassNameA" (ByVal hWnd As Long, ByVal lpClassName As String, ByVal nMaxCount As Long) As Long
+Private Declare Function GetWindowText Lib "user32.dll" Alias "GetWindowTextA" (ByVal hWnd As Long, ByVal lpString As String, ByVal cch As Long) As Long
 
 Public Declare Function GetTickCount Lib "kernel32.dll" () As Long 'Retrieves how many miliseconds elapsed since windows started. Usefull for benchmarking among other things
 
@@ -39,6 +41,7 @@ Public Enum ConfigCodes
     ccForceFirstRow = 128
     ccSkipDebugBar = 256
     ccHideToolbarsInRuntime = 512
+    ccForceLinearToolbars = 1024
             
 End Enum
 
@@ -90,9 +93,12 @@ End Type
 Private Const HWND_TOPMOST As Long = -1
 Private Const SWP_NOMOVE As Long = &H2
 Private Const SWP_NOSIZE As Long = &H1
+Private Const GW_HWNDNEXT As Long = 2
+Private Const GW_ENABLEDPOPUP As Long = 6
 
 Private Const HKEY_CURRENT_USER As Long = &H80000001
-Private Const REG_SZ As Long = 1
+Private Const REG_BUTTON_SIZE As Long = 1
+Private Const ADDIN_REGISTRY_KEY As String = "Software\Microsoft\Visual Basic\6.0\Addins\ModernVB.Connect"
 
 Public Const MODERN_TOOLBAR_PREFIX As String = "Modern "
 Public Const ADDIN_TOOLBAR_COLLAPSE As String = "Collapse Windows (Add-in)"
@@ -119,23 +125,26 @@ Public g_olOriginalLayout As OriginalLayout
 Public g_colModernBars As Collection
 Public g_lngConfigCodes As ConfigCodes
 Public g_lngPrevIDEState As Long
-Public g_intIndex As Integer
-Public g_blnRepeatIcon As Boolean
 Public g_blnMustInitDocumentWindow As Boolean
-Public g_lngMaxBarSize As Long
+Public g_lngStatusDelay As Long
+Public g_blnFolderView As Boolean
+
+Private m_intIndex As Integer
+Private m_blnRepeatIcon As Boolean
+Private m_lngMaxBarSize As Long
 
 'FUNCTIONS AND SUBROUTINES
 '**************************
 
 'Read Setting
 '*************
-Public Function ReadSetting(ByRef Key As String) As Long
+Public Function ReadSetting(ByRef Key As String, Optional Path As String = ADDIN_REGISTRY_KEY) As Long
 
     Dim strRet As String, hKey As Long: strRet = String$(2, vbNullChar)
     
-    RegOpenKey HKEY_CURRENT_USER, "Software\Microsoft\Visual Basic\6.0\Addins\ModernVB.Connect", hKey
+    RegOpenKey HKEY_CURRENT_USER, Path, hKey
     
-    If RegQueryValueEx(hKey, Key, 0, REG_SZ, ByVal strRet, Len(strRet)) = 0 Then
+    If RegQueryValueEx(hKey, Key, 0, REG_BUTTON_SIZE, ByVal strRet, Len(strRet)) = 0 Then
     
         ReadSetting = Val(Chr$(AscB(strRet))): RegCloseKey hKey
         
@@ -145,13 +154,11 @@ End Function
 
 'Write Setting
 '**************
-Public Function WriteSetting(ByRef Key As String, Value As String) As Long
+Public Function WriteSetting(ByRef Key As String, Value As String, Optional Path As String = ADDIN_REGISTRY_KEY) As Long
 
-    Dim hKey As Long
-    
-    RegOpenKey HKEY_CURRENT_USER, "Software\Microsoft\Visual Basic\6.0\Addins\ModernVB.Connect", hKey
+    Dim hKey As Long: RegOpenKey HKEY_CURRENT_USER, Path, hKey
         
-    If RegSetValueEx(hKey, Key, 0, REG_SZ, ByVal Value, Len(Value)) = 0 Then RegCloseKey hKey
+    If RegSetValueEx(hKey, Key, 0, REG_BUTTON_SIZE, ByVal Value, Len(Value)) = 0 Then RegCloseKey hKey
 
 End Function
 
@@ -465,6 +472,8 @@ ClipSave:
     
 End Sub
 
+'Toggle Topmost Toolbars
+'************************
 Public Sub ToggleTopmostToolbars(ByVal Show As Boolean)
 
     Dim i As Long
@@ -487,8 +496,7 @@ Public Sub CreateToggleToolbar()
 
     On Error Resume Next
     
-    Dim OriginalButton As CommandBarButton, NewButton As CommandBarButton
-    Dim strNewCaption As String, blnBeginGroup As Boolean
+    Dim OriginalButton As CommandBarButton, NewButton As CommandBarButton, strNewCaption As String
     
     Set g_tlbVBToggle = g_ideVB.CommandBars(VB_TOOLBAR_COLLAPSE): g_tlbVBToggle.Visible = False
 
@@ -554,11 +562,9 @@ Public Sub RegisterToggles(ParamArray ButtonID() As Variant)
     
     End If
     
-    Dim Button As CommandBarButton, Handler As CEventHandler, Host As TModernBar, i As Long
+    Dim Button As CommandBarButton, Handler As CEventHandler, Host As CommandBar, i As Long
         
-    Set Host.Reference = g_ideVB.CommandBars(ADDIN_TOOLBAR_COLLAPSE): If Host.Reference Is Nothing Then Exit Sub
-    
-    If Not g_btnStatusPanel Is Nothing Then Host.StatusPanel = g_btnStatusPanel
+    Set Host = g_ideVB.CommandBars(ADDIN_TOOLBAR_COLLAPSE): If Host Is Nothing Then Exit Sub
     
     For i = 0 To UBound(ButtonID)
     
@@ -595,7 +601,7 @@ Public Sub CreateModernToolbars(GroupBars As Boolean, ParamArray Names() As Vari
 
     On Error GoTo CreateModernToolbars_Error
 
-    Dim Source As CommandBar, Modern As TModernBar
+    Dim Source As CommandBar, Modern As CommandBar
     Dim i As Integer, j As Integer, blnGrouped As Boolean
 
     If IsMissing(Names) Then Exit Sub
@@ -606,67 +612,55 @@ Public Sub CreateModernToolbars(GroupBars As Boolean, ParamArray Names() As Vari
 
         If Not Source Is Nothing Then
         
-            With Modern
+            Source.Visible = False
             
-                Source.Visible = False
-                
-                If (g_lngConfigCodes And ccSkipDebugBar) <> 0 Then If Names(i) = VB_TOOLBAR_DEBUG Then GoTo NextBar
-    
-                If Not GroupBars Or Not blnGrouped Then
-                
-                        .Name = MODERN_TOOLBAR_PREFIX & Names(i)
-                        
-                        Set .Reference = Nothing
-                        
-                        Set .Reference = g_ideVB.CommandBars.Add(.Name, msoBarTop, Temporary:=True)
-                        
-                        Set .StatusPanel = Modern.Reference.Controls.Add(msoControlButton)
-                        
-                        Set g_btnStatusPanel = .StatusPanel: .Reference.Visible = False
-                        
-                        .StatusPanel.Style = msoButtonCaption: .StatusPanel.Visible = False
-                        
-                        blnGrouped = True: g_colModernBars.Add Modern
-    
-                End If
-    
-                For j = 1 To Source.Controls.Count: AddButton Modern, Source, Source.Controls(j): Next j
-                
-                .StatusPanel.Move .Reference, .Reference.Controls.Count + 1
-                
-                .StatusPanel.BeginGroup = True:  g_intIndex = 0: .Reference.Left = 0
-                
-                If Not GroupBars Then .Reference.Visible = True
-                
-                If (g_lngConfigCodes And ccForceFirstRow) <> 0 Then .Reference.RowIndex = 2: GoTo NextBar
-                
-                If g_colModernBars.Count > 1 Then
-            
-                    .Reference.RowIndex = g_colModernBars(g_colModernBars.Count - 1).Reference.RowIndex
-                    
-                    g_lngMaxBarSize = g_lngMaxBarSize + .Reference.Width
-            
-                    If g_lngMaxBarSize > (Screen.Width \ Screen.TwipsPerPixelX) Then g_lngMaxBarSize = .Reference.Width: .Reference.RowIndex = .Reference.RowIndex + 1
-                
-                Else
-                
-                    g_lngMaxBarSize = .Reference.Width
-                
-                    If (g_lngConfigCodes And ccDockGaugeStandard) <> 0 And Not g_btnGauge Is Nothing Then g_lngMaxBarSize = g_lngMaxBarSize + g_btnGauge.Width
-                
-                End If
-                
-                If (g_lngConfigCodes And ccLockToolbars) = 0 Then g_lngMaxBarSize = g_lngMaxBarSize + 12
-                                
-            End With
+            If (g_lngConfigCodes And ccSkipDebugBar) <> 0 Then If Names(i) = VB_TOOLBAR_DEBUG Then GoTo NextBar
 
+            If Not GroupBars Or Not blnGrouped Then
+            
+                Set Modern = Nothing
+
+                Set Modern = g_ideVB.CommandBars.Add(MODERN_TOOLBAR_PREFIX & Names(i), msoBarTop, Temporary:=True)
+                                        
+                Modern.Visible = False: blnGrouped = True: g_colModernBars.Add Modern ', Modern.Name
+
+            End If
+
+            For j = 1 To Source.Controls.Count: AddButton Modern, Source, Source.Controls(j): Next j
+
+            m_intIndex = 0: Modern.Left = 0 ': If Not GroupBars Then Modern.Visible = True
+                        
+            If g_colModernBars.Count > 1 Then
+        
+                Modern.RowIndex = g_colModernBars(g_colModernBars.Count - 1).RowIndex
+                
+                m_lngMaxBarSize = m_lngMaxBarSize + Source.Width
+            
+                If (g_lngConfigCodes And ccLockToolbars) = 0 Then If Not GroupBars Or i = 0 Then m_lngMaxBarSize = m_lngMaxBarSize + 12
+        
+                If (g_lngConfigCodes And ccForceLinearToolbars) = 0 Then
+            
+                    If m_lngMaxBarSize > (Screen.Width \ Screen.TwipsPerPixelX) Then m_lngMaxBarSize = Modern.Width: Modern.RowIndex = Modern.RowIndex + 1
+                    
+                End If
+            
+            Else
+            
+                If (g_lngConfigCodes And ccForceFirstRow) <> 0 Then Modern.RowIndex = 2
+            
+                m_lngMaxBarSize = Modern.Width
+            
+                If (g_lngConfigCodes And ccDockGaugeStandard) <> 0 And Not g_btnGauge Is Nothing Then m_lngMaxBarSize = m_lngMaxBarSize + g_btnGauge.Width
+            
+            End If
+                            
         End If
         
-NextBar: Next i
-    
-    If Not Modern.Reference Is Nothing Then Modern.Reference.Visible = True
+NextBar: Next i ': If Not Modern Is Nothing Then Modern.Visible = True
 
-    Dim k As Long: For k = g_colModernBars.Count - 1 To 1 Step -1: g_colModernBars(k).Reference.Left = 0: Next k
+    'Rearrange and display the Modern toolbars
+    
+    Dim k As Long: For k = g_colModernBars.Count To 1 Step -1: g_colModernBars(k).Left = 0: g_colModernBars(k).Visible = True: Next k
     
     On Error GoTo 0
     
@@ -675,95 +669,94 @@ NextBar: Next i
 CreateModernToolbars_Error:
 
     #If DEBUG_MODE = 1 Then
-        Echo "Error " & Err.Number & " (" & Err.Description & ") while creating toolbar " & Source.Name, vbLogEventTypeError
+        Echo "Error " & Err.Number & " (" & Err.Description & ") while creating toolbar " & MODERN_TOOLBAR_PREFIX & Source.Name, vbLogEventTypeError
     #End If
 
 End Sub
 
 'Add Button
 '***********
-Public Sub AddButton(Host As TModernBar, Source As CommandBar, Button As Object)
+Public Sub AddButton(Host As CommandBar, Source As CommandBar, Button As CommandBarControl)
     
     On Error GoTo AddButton_Err
     
-        Dim Btn As Object, BtnImg As StdPicture, i As Integer
+    Dim Btn As CommandBarControl, BtnImg As StdPicture, i As Integer
+    
+    Dim Handler As CEventHandler
+    
+    If LenB(Button.Caption) = 0 Then Exit Sub 'Skip for empty caption buttons
+    
+    Select Case Button.Id
+    
+        Case tidEmpty: If UCase$(Button.Caption) = "[EMPTY]" Then Exit Sub 'Skip strange outlier invisible Webclass button
+        Case tidMoreActiveXDesigners: Exit Sub 'Ignore invisible More ActiveX Designers menu
+        Case tidGauge: Set g_btnGauge = Button: Exit Sub
         
-        Dim Handler As CEventHandler
-        
-        If LenB(Button.Caption) = 0 Then Exit Sub 'Skip for empty caption buttons
-        
-        Select Case Button.Id
-        
-            Case tidEmpty: If UCase$(Button.Caption) = "[EMPTY]" Then Exit Sub 'Skip strange outlier invisible Webclass button
-            Case tidMoreActiveXDesigners: Exit Sub 'Ignore invisible More ActiveX Designers menu
-            Case tidGauge: If Button.Caption = "Gauge" Then Set g_btnGauge = Button:  Exit Sub
-            
-        End Select
-        
-        Set Btn = Host.Reference.Controls.Add(msoControlButton)
-        
-        With Button
-        
-            #If DEBUG_MODE = 1 Then
-                LogButton Button, App.Path & "\toolbars.txt"
-            #End If
+    End Select
+    
+    Set Btn = Host.Controls.Add(msoControlButton)
+    
+    With Button
+                
+        #If DEBUG_MODE = 1 Then
+            LogButton Button, App.Path & "\toolbars.txt"
+        #End If
 
-            If LenB(.ToolTipText) = 0 Then .ToolTipText = .Caption
-    
-            Btn.BeginGroup = .BeginGroup: Btn.Caption = .Caption
-            Btn.HelpContextID = .HelpContextID: Btn.HelpFile = .HelpFile
-            Btn.ToolTipText = .ToolTipText: Btn.OLEUsage = .OLEUsage
-            Btn.Priority = .Priority: Btn.Visible = True
-    
-            If Not g_blnRepeatIcon Then g_intIndex = g_intIndex + 1 Else g_blnRepeatIcon = False
-            
-            On Error Resume Next
-            
-                .Visible = True: Btn.Tag = "CTRL" & g_intIndex: .Tag = Btn.Tag
-            
-            On Error GoTo AddButton_Err
-                
-            Set BtnImg = LoadResPicture(SanitizeTooltip(.ToolTipText), vbResBitmap)
-            
-            CopyBitmapAsButtonFace BtnImg, vbMagenta: Btn.PasteFace
-    
-            If TypeOf Button Is CommandBarButton Then
-                
-                Btn.OnAction = .OnAction: Btn.State = .State: Btn.Style = .Style
-                
-                Set Handler = New CEventHandler
-                Set Handler.MenuHandler = g_ideVB.Events.CommandBarEvents(Btn)
-                Set Handler.SourceBar = Source
-                
-                Handler.Host = Host: g_colEventHandlers.Add Handler
+        If LenB(.ToolTipText) = 0 Then .ToolTipText = .Caption
+
+        Btn.BeginGroup = .BeginGroup: Btn.Caption = .Caption
+        Btn.HelpContextID = .HelpContextID: Btn.HelpFile = .HelpFile
+        Btn.ToolTipText = .ToolTipText: Btn.OLEUsage = .OLEUsage
+        Btn.Priority = .Priority: Btn.Visible = True
+
+        If Not m_blnRepeatIcon Then m_intIndex = m_intIndex + 1 Else m_blnRepeatIcon = False
         
-                If .Id = tidLockButton Then Handler.Toggle = True 'Handle the toggling Lock Button special case in the Form Editor bar
-    
-            ElseIf TypeOf Button Is CommandBarPopup Then
-                            
-                Set Handler = New CEventHandler
-                Set Handler.MenuHandler = g_ideVB.Events.CommandBarEvents(Btn)
-                Set Handler.SourceBar = .CommandBar
-                
-                Handler.Host = Host: g_colEventHandlers.Add Handler
-                
-                Set Btn = Host.Reference.Controls.Add(msoControlPopup)
-                
-                Btn.Caption = "&": g_blnRepeatIcon = True
-                
-                Dim udtHost As TModernBar
-                Set udtHost.Reference = Btn.CommandBar
-                Set udtHost.StatusPanel = Host.StatusPanel
-    
-                For i = 1 To .CommandBar.Controls.Count
-                    AddButton udtHost, .CommandBar, .CommandBar.Controls(i)
-                Next i
-    
-            End If
-    
-        End With
+        On Error Resume Next
+        
+            .Visible = True: Btn.Tag = "CTRL" & m_intIndex: .Tag = Btn.Tag
+        
+        On Error GoTo AddButton_Err
             
-        Exit Sub
+'            Debug.Print "Name: " & SanitizeTooltip(.ToolTipText)
+'            Debug.Print "ID: " & .Id
+
+        Set BtnImg = GetResourceImage(Button, Btn)
+        
+        CopyBitmapAsButtonFace BtnImg, vbMagenta: Btn.PasteFace
+
+        If TypeOf Button Is CommandBarButton Then
+            
+            Btn.OnAction = .OnAction: Btn.State = .State: Btn.Style = .Style
+            
+            Set Handler = New CEventHandler
+            Set Handler.MenuHandler = g_ideVB.Events.CommandBarEvents(Btn)
+            Set Handler.SourceBar = Source
+            
+            Set Handler.Host = Host: g_colEventHandlers.Add Handler
+    
+            If .Id = tidLockButton Then Handler.Toggle = True 'Handle the toggling Lock Button special case in the Form Editor bar
+
+        ElseIf TypeOf Button Is CommandBarPopup Then
+                        
+            Set Handler = New CEventHandler
+            Set Handler.MenuHandler = g_ideVB.Events.CommandBarEvents(Btn)
+            Set Handler.SourceBar = .CommandBar
+            
+            Set Handler.Host = Host: g_colEventHandlers.Add Handler
+            
+            Set Btn = Host.Controls.Add(msoControlPopup)
+            
+            Btn.Caption = "&": m_blnRepeatIcon = True
+            
+            For i = 1 To .CommandBar.Controls.Count
+                AddButton Btn.CommandBar, .CommandBar, .CommandBar.Controls(i)
+            Next i
+
+        End If
+
+    End With
+        
+    Exit Sub
         
 AddButton_Err:
     
@@ -771,52 +764,89 @@ AddButton_Err:
         Echo "Error '" & Err.Number & "' while copying button " & Button.Index & " [" & Button.Caption & "]: " & Err.Description, vbLogEventTypeError
     #End If
     
-    If Err.Number = 326 Then 'Resource not found
-    
-        Set BtnImg = LoadResPicture("DEFAULT", vbResBitmap)
-        
-        Btn.ToolTipText = "I'm sorry sir, I could not find the icon for this button. Might I suggest resetting its caption to the default value?"
-        
-        Btn.Style = msoButtonIconAndCaption
-            
-        Resume Next
-    
-    End If
-    
-    'Stop
+    Stop
     
     Resume Next
 
 End Sub
 
+'Get Resource Image
+'*******************
+Private Function GetResourceImage(Button As CommandBarControl, Target As CommandBarControl) As IPictureDisp
+
+    On Error GoTo GetResourceImage_Err
+    
+    Dim ResourceID As Variant
+
+    With Button
+    
+        Select Case .Id
+        
+            Case 746
+            
+                If .ShortcutText = "Ctrl+N" Then
+                    ResourceID = "NEW_PROJECT"
+                ElseIf .ShortcutText = "Ctrl+D" Then
+                    ResourceID = "ADD_FILE"
+                ElseIf .ShortcutText = "Ctrl+T" Then
+                    ResourceID = "COMPONENT_GALLERY"
+                ElseIf UCase$(.ToolTipText) Like "*.EXE*" Or UCase$(.ToolTipText) Like "*MAKE*" Then
+                    ResourceID = "MAKE_EXE"
+                ElseIf .Parent.Name = "Standard" Then
+                    ResourceID = "MEMBER_ATTRIBUTES"
+                ElseIf .Parent.Name = "Debug" Then
+                    ResourceID = "FULL_START"
+                Else
+                    ResourceID = SanitizeTooltip(.ToolTipText)
+                End If
+                
+            Case 1
+                ResourceID = SanitizeTooltip(.ToolTipText)
+            Case Else
+                ResourceID = .Id
+        
+        End Select
+    
+    End With
+
+    Set GetResourceImage = LoadResPicture(ResourceID, vbResBitmap)
+        
+    Exit Function
+    
+GetResourceImage_Err:
+
+    #If DEBUG_MODE = 1 Then
+        Echo "Error '" & Err.Number & "' while reading resource " & ResourceID & " for button " & Button.Index & " [" & Button.Caption & "]: " & Err.Description, vbLogEventTypeError
+    #End If
+    
+    'If Err.Number = 326 Then 'Resource not found
+
+    Set GetResourceImage = LoadResPicture("DEFAULT", vbResBitmap)
+    
+    Target.ToolTipText = "I'm sorry sir, this button does not appear to be supported."
+    
+    Target.Style = msoButtonIconAndCaption
+        
+    'End If
+    
+End Function
+
 'Sanitize Tooltip
 '*****************
 Public Function SanitizeTooltip(Tooltip As String) As String
-
-    If Left$(Tooltip, 5) = "Ma&ke" Or Tooltip = "Make..." Then
         
-        SanitizeTooltip = "MAKE_EXE"
+    Dim intPos As Integer: intPos = InStr(1, Tooltip, "(")
     
-    ElseIf InStr(1, Tooltip, "Prop&erties") <> 0 Then
-        
-        SanitizeTooltip = "PROJECT_PROPERTIES"
-        
-    Else
-        
-        Dim intPos As Integer: intPos = InStr(1, Tooltip, "(")
-        
-        If intPos <> 0 Then SanitizeTooltip = Left$(Tooltip, intPos - 1) Else SanitizeTooltip = Tooltip
-        
-        SanitizeTooltip = UCase$(Trim$(SanitizeTooltip))
-        
-        SanitizeTooltip = Replace$(SanitizeTooltip, "&", vbNullString)
-        SanitizeTooltip = Replace$(SanitizeTooltip, "...", vbNullString)
-        SanitizeTooltip = Replace$(SanitizeTooltip, "'", vbNullString)
-        SanitizeTooltip = Replace$(SanitizeTooltip, "/", "_")
-        SanitizeTooltip = Replace$(SanitizeTooltip, "-", "_")
-        SanitizeTooltip = Replace$(SanitizeTooltip, " ", "_")
-        
-    End If
+    If intPos <> 0 Then SanitizeTooltip = Left$(Tooltip, intPos - 1) Else SanitizeTooltip = Tooltip
+    
+    SanitizeTooltip = UCase$(Trim$(SanitizeTooltip))
+    
+    SanitizeTooltip = Replace$(SanitizeTooltip, "&", vbNullString)
+    SanitizeTooltip = Replace$(SanitizeTooltip, "...", vbNullString)
+    SanitizeTooltip = Replace$(SanitizeTooltip, "'", vbNullString)
+    SanitizeTooltip = Replace$(SanitizeTooltip, "/", "_")
+    SanitizeTooltip = Replace$(SanitizeTooltip, "-", "_")
+    SanitizeTooltip = Replace$(SanitizeTooltip, " ", "_")
 
 End Function
 
@@ -852,24 +882,58 @@ End Sub
 
 'Dock Standard Bar To Window
 '****************************
-Public Sub DockStandardBarToWindow(ByVal X As Long, Y As Long, Optional ByVal Width As Long, Optional ByVal Height As Long, Optional ByVal ParentWindowName As String)
+Public Sub DockStandardBarToWindow(ByVal X As Long, Optional ByVal Width As Long, Optional ByVal Height As Long, Optional ByVal ParentWindowName As String)
     
-    Dim hStandard As Long, hParent As Long, hMainWindow As Long
+    Dim hStandard As Long, hParent As Long
     
     g_tlbVBStandard.Position = msoBarFloating: g_tlbVBStandard.Protection = msoBarNoMove
     
-    hStandard = FindWindowEx(0&, ByVal 0&, "MsoCommandBar", VB_TOOLBAR_STANDARD)
-    hMainWindow = FindWindowEx(0&, 0&, "wndclass_desked_gsk", g_ideVB.MainWindow.Caption)
+    hParent = FindWindowEx(g_ideVB.MainWindow.hWnd, ByVal 0&, "MsoCommandBarDock", "MsoDockTop") 'hMainWindow = FindWindowEx(0&, 0&, "wndclass_desked_gsk", g_ideVB.MainWindow.Caption)
     
-    If hMainWindow <> 0 Then hParent = FindWindowEx(hMainWindow, ByVal 0&, "MsoCommandBarDock", "MsoDockTop")
-    If hParent <> 0 Then hParent = FindWindowEx(hParent, ByVal 0&, "MsoCommandBar", ParentWindowName)
+    If hParent = 0 Then Exit Sub
     
-    If hParent <> 0 Then SetParent hStandard, hMainWindow
+    hStandard = FindStandardToolbar() 'FindWindowEx(ByVal 0&, ByVal 0&, "MsoCommandBar", VB_TOOLBAR_STANDARD)
+    hParent = FindWindowEx(hParent, ByVal 0&, "MsoCommandBar", ParentWindowName)
+
+    If hParent <> 0 And hStandard <> 0 Then SetParent hStandard, hParent
             
     SetWindowPos hStandard, 0, X, -Height - 2, Width + 10, Height * 2 + 5, 0&
     SetWindowPos hStandard, -1, 0, 0, 0, 0, 3&
        
 End Sub
+
+'Find Standard Toolbar
+'**********************
+Private Function FindStandardToolbar() As Long
+
+    Dim hTemp As Long, strClass As String, strText As String, lngRet As Long
+    
+    hTemp = g_ideVB.MainWindow.hWnd: strClass = String$(256, vbNullChar): strText = String$(Len(VB_TOOLBAR_STANDARD) + 1, vbNullChar)
+
+    Do While hTemp <> 0
+    
+        hTemp = GetWindow(hTemp, GW_ENABLEDPOPUP Or GW_HWNDNEXT)
+        
+        If hTemp <> 0 Then
+        
+            lngRet = GetClassName(hTemp, strClass, Len(strClass))
+        
+            If Left$(strClass, lngRet) = "MsoCommandBar" Then
+            
+                lngRet = GetWindowText(hTemp, strText, Len(VB_TOOLBAR_STANDARD) + 1)
+            
+                If Left$(strText, lngRet) = VB_TOOLBAR_STANDARD Then FindStandardToolbar = hTemp: Exit Do
+            
+            End If
+        
+        End If
+    
+    Loop
+    
+    'Not reliable if there are multiple instances of VB6.exe running, but fallback if the window wasn't found
+    If FindStandardToolbar = 0 Then FindStandardToolbar = FindWindowEx(ByVal 0&, ByVal 0&, "MsoCommandBar", VB_TOOLBAR_STANDARD)
+        
+End Function
 
 'Save Panel
 '***********
@@ -919,6 +983,75 @@ Public Sub RestorePanels(ByVal AffectVisibility As Boolean)
         W.Width = g_olOriginalLayout.FormLayout.Width
     End If
     
+End Sub
+
+'Set Code Layout
+'****************
+Public Sub SetCodeLayout()
+
+    Dim W As Window: Set W = FindWindow(vbext_wt_CodeWindow)
+
+    If W Is Nothing Then Set W = FindPanel(vbext_wt_CodeWindow)
+
+    If Not W Is Nothing Then
+
+        If (g_lngConfigCodes And ccCustomLayouts) <> 0 Then
+                        
+            'FindWindow(vbext_wt_Immediate).Visible = False
+            FindWindow(vbext_wt_Toolbox).Visible = False
+            FindWindow(vbext_wt_PropertyWindow).Visible = False
+            FindWindow(vbext_wt_Watch).Visible = False
+            FindWindow(vbext_wt_Locals).Visible = False
+            FindWindow(vbext_wt_Browser).Visible = False
+            FindWindow(vbext_wt_Preview).Visible = False
+            
+            If g_blnMustInitDocumentWindow Then
+            
+                FindMenu("&Add-Ins", "Document Map Window").Execute
+            
+            Else
+            
+                Dim DocumentMap As Window: Set DocumentMap = FindWindow(vbext_wt_ToolWindow)
+            
+                If DocumentMap.Caption = "Document Map" Then DocumentMap.Visible = True
+                
+            End If
+            
+            FindMenu("&CodeSMART", "Co&de Flow Explorer").Execute
+            
+        End If: W.SetFocus
+        
+    End If
+
+End Sub
+
+'Set Object Layout
+'******************
+Public Sub SetObjectLayout()
+
+    Dim W As Window: Set W = FindWindow(vbext_wt_Designer)
+
+    If W Is Nothing Then Set W = FindPanel(vbext_wt_Designer)
+    
+    If Not W Is Nothing Then
+    
+        If (g_lngConfigCodes And ccCustomLayouts) <> 0 Then
+        
+            'FindWindow(vbext_wt_Immediate).Visible = False
+            FindWindow(vbext_wt_Toolbox).Visible = True
+            FindWindow(vbext_wt_PropertyWindow).Visible = True
+            FindWindow(vbext_wt_Watch).Visible = False
+            FindWindow(vbext_wt_Locals).Visible = False
+            FindWindow(vbext_wt_Browser).Visible = False
+            FindWindow(vbext_wt_Preview).Visible = True
+            FindWindow(vbext_wt_ToolWindow).Visible = False 'Hide documents window
+            
+            FindMenu("&CodeSMART", "De&signer Explorer").Execute
+            
+        End If: W.SetFocus
+    
+    End If
+
 End Sub
 
 'No longer in use:
@@ -999,7 +1132,6 @@ End Sub
     
     End Sub
 
-    
     'Log Menus
     '**********
     Private Sub LogMenus(Menu As CommandBar, LogFile As String)
@@ -1052,6 +1184,8 @@ End Sub
             Echo "Caption: " & .Caption, , LogFile
             Echo "ID: " & .Id, , LogFile
             Echo "FaceID: " & .FaceId, , LogFile
+            Echo "Help ID: " & .HelpContextID
+            Echo "Name File: " & .HelpFile
             Echo "DescriptionText: " & .DescriptionText, , LogFile
             Echo "Tooltip: " & .ToolTipText, , LogFile
             Echo "Sanitized Tooltip: " & SanitizeTooltip(.ToolTipText), , LogFile

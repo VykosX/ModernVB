@@ -18,31 +18,22 @@ Attribute MenuHandler.VB_VarHelpID = -1
 
 Private Const DEFAULT_DELAY As Integer = 2000
 
-Public Type TModernBar
-
-    Name As String
-    Reference As CommandBar
-    StatusPanel As CommandBarButton
-    StatusDelay As Long
-        
-End Type
-
-Private m_udtHost As TModernBar, m_barSourceBar As CommandBar
+Private m_barHost As CommandBar, m_barSourceBar As CommandBar
 Private m_strKey As String, m_blnToggle As Boolean
 
 'PROPERTIES
 '***********
-Public Property Get Host() As TModernBar: Host = m_udtHost: End Property
-Public Property Let Host(udtNewValue As TModernBar): m_udtHost = udtNewValue: End Property
+Public Property Get Host() As CommandBar: Set Host = m_barHost: End Property
+Public Property Set Host(Value As CommandBar): Set m_barHost = Value: End Property
 
-Public Property Get Toggle() As Boolean: Toggle = m_blnToggle: End Property
-Public Property Let Toggle(ByVal Value As Boolean): m_blnToggle = Value: End Property
+Public Property Get Key() As String: Key = m_strKey: End Property
+Public Property Let Key(ByVal Value As String): m_strKey = Value: End Property
 
 Public Property Get SourceBar() As CommandBar: Set SourceBar = m_barSourceBar: End Property
 Public Property Set SourceBar(ByVal Value As CommandBar): Set m_barSourceBar = Value: End Property
 
-Public Property Get Key() As String: Key = m_strKey: End Property
-Public Property Let Key(ByVal Value As String): m_strKey = Value: End Property
+Public Property Get Toggle() As Boolean: Toggle = m_blnToggle: End Property
+Public Property Let Toggle(ByVal Value As Boolean): m_blnToggle = Value: End Property
 
 'EVENTS
 '*******
@@ -53,11 +44,9 @@ Private Sub MenuHandler_Click(ByVal CommandBarControl As Object, handled As Bool
 
     On Error GoTo MenuHandler_Click
 
-    If GetTickCount - Host.StatusDelay < DEFAULT_DELAY Then Exit Sub
-    
-    If Not Host.StatusPanel Is Nothing Then If Host.StatusPanel.Visible Then Exit Sub
-    
-    Dim i As Long, lngID As Long, strTag As String, blnRescan As Boolean
+    If GetTickCount - g_lngStatusDelay < DEFAULT_DELAY Then Exit Sub
+
+    Dim lngID As Long, strTag As String, blnRescan As Boolean
     Dim WindowType As VBIDE.vbext_WindowType, cbButton As Object
         
     lngID = CommandBarControl.Id
@@ -95,13 +84,7 @@ EvaluateButton:
             
                 If Not cbButton Is Nothing Then
             
-                    cbButton.Execute
-                    
-                    If Toggle Then CommandBarControl.State = Not cbButton.State
-
-                    'Select Case lngID
-                    '     Case 186, 746, 515: 'Start, Full Start, Restart
-                    'End Select
+                    cbButton.Execute: If Toggle Then CommandBarControl.State = Not cbButton.State
                     
                 End If
                 
@@ -113,72 +96,17 @@ EvaluateButton:
     
 ScanWindows:
 
-    Dim W As Window: Set W = FindWindow(WindowType)
-    
     Select Case WindowType
     
-        Case vbext_wt_CodeWindow
+        Case vbext_wt_CodeWindow: SetCodeLayout
         
-            If W Is Nothing Then Set W = FindPanel(WindowType)
-        
-            If Not W Is Nothing Then
-            
-                If (g_lngConfigCodes And ccCustomLayouts) <> 0 Then
-                
-                    'FindWindow(vbext_wt_Immediate).Visible = False
-                    FindWindow(vbext_wt_Toolbox).Visible = False
-                    FindWindow(vbext_wt_PropertyWindow).Visible = False
-                    FindWindow(vbext_wt_Watch).Visible = False
-                    FindWindow(vbext_wt_Locals).Visible = False
-                    FindWindow(vbext_wt_Browser).Visible = False
-                    FindWindow(vbext_wt_Preview).Visible = False
-                    
-                    If g_blnMustInitDocumentWindow Then
-                    
-                        FindMenu("&Add-Ins", "Document Map Window").Execute
-                    
-                    Else
-                    
-                        Dim DocumentMap As Window: Set DocumentMap = FindWindow(vbext_wt_ToolWindow)
-                    
-                        If DocumentMap.Caption = "Document Map" Then DocumentMap.Visible = True
-                        
-                    End If
-                    
-                    FindMenu("&CodeSMART", "Co&de Flow Explorer").Execute
-                    
-                End If: W.SetFocus
-                
-            End If
-        
-        Case vbext_wt_Designer
-        
-            If W Is Nothing Then Set W = FindPanel(WindowType)
-            
-            If Not W Is Nothing Then
-        
-                If (g_lngConfigCodes And ccCustomLayouts) <> 0 Then
-                
-                    'FindWindow(vbext_wt_Immediate).Visible = False
-                    FindWindow(vbext_wt_Toolbox).Visible = True
-                    FindWindow(vbext_wt_PropertyWindow).Visible = True
-                    FindWindow(vbext_wt_Watch).Visible = False
-                    FindWindow(vbext_wt_Locals).Visible = False
-                    FindWindow(vbext_wt_Browser).Visible = False
-                    FindWindow(vbext_wt_Preview).Visible = True
-                    FindWindow(vbext_wt_ToolWindow).Visible = False 'Hide documents window
-                    
-                    FindMenu("&CodeSMART", "De&signer Explorer").Execute
-                    
-                End If: W.SetFocus
-                
-            End If
+        Case vbext_wt_Designer: SetObjectLayout
 
         Case Else
+        
+            Dim W As Window: Set W = FindWindow(WindowType)
     
-            W.Visible = Not W.Visible: CancelDefault = True
-            
-            RestorePanels False
+            W.Visible = Not W.Visible: CancelDefault = True: RestorePanels False
             
     End Select
     
@@ -194,18 +122,12 @@ MenuHandler_Click:
     
     If Err.Number = CANT_EXECUTE Then
     
-        If Not Host.StatusPanel Is Nothing Then
+        If Not g_btnStatusPanel Is Nothing Then
         
-            Dim strBuffer As String: strBuffer = g_btnGauge.Caption
+            g_btnStatusPanel.Caption = "[ X ] Action not available": g_btnStatusPanel.Visible = True
             
-            g_tlbVBStandard.Visible = False: Host.StatusPanel.Width = g_btnGauge.Width
-    
-            Host.StatusPanel.Caption = "Action not available": Host.StatusPanel.Visible = True
-            
-            Host.StatusDelay = GetTickCount: Wait DEFAULT_DELAY - 500: Host.StatusPanel.Visible = False
-            
-            g_tlbVBStandard.Visible = True
-        
+            g_lngStatusDelay = GetTickCount: Wait DEFAULT_DELAY - 500: g_btnStatusPanel.Visible = False
+                    
         End If
         
         Exit Sub

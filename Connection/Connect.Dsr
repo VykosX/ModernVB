@@ -1,11 +1,11 @@
 VERSION 5.00
 Begin {AC0714F6-3D04-11D1-AE7D-00A0C90F26F4} Connect 
-   ClientHeight    =   11400
+   ClientHeight    =   11055
    ClientLeft      =   1740
    ClientTop       =   1545
-   ClientWidth     =   22155
-   _ExtentX        =   39079
-   _ExtentY        =   20108
+   ClientWidth     =   19200
+   _ExtentX        =   33867
+   _ExtentY        =   19500
    _Version        =   393216
    Description     =   "Updates the Visual Basic IDE to look and feel more modern."
    DisplayName     =   "ModernVB"
@@ -57,6 +57,17 @@ Attribute AboutHandler.VB_VarHelpID = -1
 
 Private m_blnDisplayedAbout As Boolean
 
+'HANDLERS
+'*********
+
+'About Button Click
+'^^^^^^^^^^^^^^^^^^^
+Private Sub AboutHandler_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    
+    m_blnDisplayedAbout = True: frmAbout.Show: AlwaysOnTop frmAbout.hWnd 'vbModal 'Show about form
+
+End Sub
+
 'ADD-IN
 '*******
 
@@ -64,7 +75,7 @@ Private m_blnDisplayedAbout As Boolean
 '^^^^^^^^^^^^^^
 Private Sub AddinInstance_OnConnection(ByVal Application As Object, ByVal ConnectMode As AddInDesignerObjects.ext_ConnectMode, ByVal AddInInst As Object, custom() As Variant)
      
-     Dim Args() As Variant: Set g_ideVB = Application
+    Dim Args() As Variant: Set g_ideVB = Application
     
     'Read and initialize add-in configuration from the registry
     
@@ -76,7 +87,8 @@ Private Sub AddinInstance_OnConnection(ByVal Application As Object, ByVal Connec
     If ReadSetting("ShowToggleBar") = "1" Then g_lngConfigCodes = g_lngConfigCodes + ccShowToggleBar
     If ReadSetting("LockToolbars") = "1" Then g_lngConfigCodes = g_lngConfigCodes + ccLockToolbars
     If ReadSetting("CustomLayouts") = "1" Then g_lngConfigCodes = g_lngConfigCodes + ccCustomLayouts
-    If ReadSetting("ForceFirstRow") = "1" Then g_lngConfigCodes = g_lngConfigCodes + ccForceFirstRow
+    If ReadSetting("ForceFirstRow") = "1" Then g_lngConfigCodes = g_lngConfigCodes + ccForceFirstRow Else _
+    If ReadSetting("ForceFirstRow") = "2" Then g_lngConfigCodes = g_lngConfigCodes + ccForceLinearToolbars
     If ReadSetting("SkipDebugBar") = "1" Then g_lngConfigCodes = g_lngConfigCodes + ccSkipDebugBar
     If ReadSetting("HideToolbarsInRuntime") = "1" Then g_lngConfigCodes = g_lngConfigCodes + ccHideToolbarsInRuntime
            
@@ -94,8 +106,6 @@ Private Sub AddinInstance_OnStartupComplete(custom() As Variant)
     
     Dim i As Long, strClipboard As String
     
-    If g_ideVB Is Nothing Then MsgBox "Please restart Visual Basic to properly initialize the ModernVB addin!", vbExclamation: Exit Sub
-    
     'Save Clipboard contents
     
     #If CLIPBOARD_BACKUP = 0 Then
@@ -110,6 +120,18 @@ Private Sub AddinInstance_OnStartupComplete(custom() As Variant)
     
     Set g_colEventHandlers = New Collection: Set g_colModernBars = New Collection
     
+    Set g_btnStatusPanel = g_ideVB.CommandBars(VB_MENU_INDEX).Controls.Add(msoControlButton)
+                                        
+    g_btnStatusPanel.Visible = False:  g_btnStatusPanel.Style = msoButtonCaption: g_btnStatusPanel.BeginGroup = True
+    
+    'Replace Project Explorer icons
+    
+    Load frmAbout
+    
+    g_blnFolderView = (ReadSetting("FolderView", "Software\Microsoft\Visual Basic\6.0") = "1")
+    
+    ReplaceProjectExplorerIcons frmAbout, frmAbout.picOverlay
+                    
     'Create ModernVB toolbars
     
     If (g_lngConfigCodes And ccGroupAllBars) <> 0 Then
@@ -155,8 +177,8 @@ Private Sub AddinInstance_OnStartupComplete(custom() As Variant)
     
     If Not g_btnGauge Is Nothing Then
     
-        For i = 1 To g_tlbVBStandard.Controls.Count: g_tlbVBStandard.Controls(i).Visible = False: Next i
-    
+        For i = 1 To g_tlbVBStandard.Controls.Count - 1: g_tlbVBStandard.Controls(i).Visible = False: Next i 'If g_tlbVBStandard.Controls(i).Id <> tidGauge Then
+            
         g_tlbVBStandard.Visible = True
         
     End If
@@ -175,12 +197,12 @@ Private Sub AddinInstance_OnStartupComplete(custom() As Variant)
         
         With g_ideVB.CommandBars(VB_MENU_INDEX)
         
-            DockStandardBarToWindow .Controls(.Controls.Count).Left + 5 + .Controls(.Controls.Count).Width, 0, g_btnGauge.Width, .Controls(.Controls.Count).Height, "Menu Bar"
+            DockStandardBarToWindow .Controls(.Controls.Count).Left + .Controls(.Controls.Count).Width + 120, g_btnGauge.Width, .Controls(.Controls.Count).Height, "Menu Bar"
                     
         End With
         
     Else: g_tlbVBStandard.Protection = msoBarNoProtection: End If
-    
+
     g_tlbModernStandard.Left = 0
     
     'Create and set up the window toggles toolbar if requested
@@ -203,6 +225,8 @@ Private Sub AddinInstance_OnStartupComplete(custom() As Variant)
     
     End If
     
+    Dim k As Long: For k = g_colModernBars.Count To 1 Step -1: g_colModernBars(k).Left = 0: Next k
+        
     'Save original state of the IDE panels
     
     SavePanel FindWindow(vbext_wt_Immediate), g_olOriginalLayout.Immediate: SavePanel FindWindow(vbext_wt_Watch), g_olOriginalLayout.Watches
@@ -211,7 +235,7 @@ Private Sub AddinInstance_OnStartupComplete(custom() As Variant)
     g_blnMustInitDocumentWindow = Not (FindMenu("&Add-Ins", "Document Map Window") Is Nothing) 'Set up to display document map window on first code view change, if available
     
     'Attempt to replace any missing menu icons with icons from the ModernVB toolbars
-    
+        
     Clipboard.Clear
     FindButton("Add Multiple Files...", g_tlbModernStandard).CopyFace
     FindMenu("&Project", "Add Multiple Files...").PasteFace
@@ -221,7 +245,6 @@ Private Sub AddinInstance_OnStartupComplete(custom() As Variant)
     FindMenu("&View", "Data &View Window").PasteFace
     
     'AddMissingMenuIcons g_ideVB.CommandBars(VB_MENU_INDEX)
-
     UpdateRuntimeToolbarIcons 'Update the runtime toolbar to ensure it correctly displays disabled icons
     
     'Replace context menu icons
@@ -238,9 +261,9 @@ Private Sub AddinInstance_OnStartupComplete(custom() As Variant)
     ReplaceContextMenuIcons g_ideVB.CommandBars("Object Browser")
     ReplaceContextMenuIcons g_ideVB.CommandBars("Toolbox")
     
-    'Prepare for displaying
+    'Start timers and finish loading
     
-    Load frmAbout
+    frmAbout.tmrProjectExplorer.Enabled = True: frmAbout.tmrIDEStateChange.Enabled = True
     
     g_tlbVBStandard.Enabled = False: g_tlbVBStandard.Enabled = True
     
@@ -300,6 +323,8 @@ Private Sub AddinInstance_OnDisconnection(ByVal RemoveMode As AddInDesignerObjec
     
     frmAbout.tmrIDEStateChange.Enabled = False: Unload frmAbout
     
+    g_btnStatusPanel.Delete
+    
     'Restore all invisible toolbars if necessary
     
     If (g_lngConfigCodes And ccHideToolbarsInRuntime) <> 0 Then ToggleTopmostToolbars True
@@ -308,8 +333,10 @@ Private Sub AddinInstance_OnDisconnection(ByVal RemoveMode As AddInDesignerObjec
     
     g_tlbVBStandard.Visible = False: g_tlbVBStandard.Protection = msoBarNoProtection
     g_tlbVBStandard.Position = msoBarTop: g_tlbVBStandard.RowIndex = 2
-        
-    For i = 1 To g_colModernBars.Count: g_colModernBars.Item(i).Reference.Delete: Next i
+    
+    DoEvents
+            
+    For i = 1 To g_colModernBars.Count: g_colModernBars.Item(i).Delete: Next i
     
     'Ensure all buttons are made visible when the addin terminates
     
@@ -347,17 +374,6 @@ Private Sub AddinInstance_OnDisconnection(ByVal RemoveMode As AddInDesignerObjec
     
     Clipboard.Clear 'Clear the clipboard
     
-End Sub
-
-'HANDLERS
-'*********
-
-'About Button Click
-'^^^^^^^^^^^^^^^^^^^
-Private Sub AboutHandler_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
-    
-    m_blnDisplayedAbout = True: frmAbout.Show: AlwaysOnTop frmAbout.hWnd 'vbModal 'Show about form
-
 End Sub
 
 'BUILD EVENTS

@@ -154,7 +154,7 @@ End Function
 ' Returns 0 when successful
 Public Function ClipboardRestore() As Long
 
-    Dim i As Long, uFormat As Long, p As Long, TotalSize As Long, hMem As Long, sFormat As String
+    Dim i As Long, p As Long, hMem As Long
     
     On Error GoTo ClipboardRestore_Error
  

@@ -1,5 +1,6 @@
 VERSION 5.00
 Begin VB.Form frmAbout 
+   AutoRedraw      =   -1  'True
    BackColor       =   &H80000005&
    BorderStyle     =   1  'Fixed Single
    Caption         =   "About ModernVB"
@@ -27,16 +28,23 @@ Begin VB.Form frmAbout
    ScaleWidth      =   358
    StartUpPosition =   1  'CenterOwner
    Visible         =   0   'False
+   Begin VB.Timer tmrProjectExplorer 
+      Enabled         =   0   'False
+      Interval        =   10
+      Left            =   60
+      Top             =   960
+   End
    Begin VB.Timer tmrIDEStateChange 
+      Enabled         =   0   'False
       Interval        =   1
-      Left            =   120
-      Top             =   1860
+      Left            =   60
+      Top             =   1920
    End
    Begin VB.Timer tmrScroll 
       Enabled         =   0   'False
       Interval        =   25
-      Left            =   120
-      Top             =   1380
+      Left            =   60
+      Top             =   1440
    End
    Begin VB.PictureBox picBottom 
       BorderStyle     =   0  'None
@@ -51,7 +59,7 @@ Begin VB.Form frmAbout
       Width           =   5430
       Begin VB.CommandButton cmdOK 
          Cancel          =   -1  'True
-         Caption         =   "OK"
+         Caption         =   "&OK"
          Default         =   -1  'True
          Height          =   465
          Left            =   3990
@@ -79,6 +87,19 @@ Begin VB.Form frmAbout
          Top             =   60
          Width           =   3885
       End
+   End
+   Begin VB.PictureBox picOverlay 
+      AutoRedraw      =   -1  'True
+      BorderStyle     =   0  'None
+      Height          =   300
+      Left            =   4740
+      ScaleHeight     =   20
+      ScaleMode       =   3  'Pixel
+      ScaleWidth      =   24
+      TabIndex        =   7
+      TabStop         =   0   'False
+      Top             =   2640
+      Width           =   360
    End
    Begin VB.Image imgGithub 
       Height          =   660
@@ -145,7 +166,7 @@ Begin VB.Form frmAbout
    Begin VB.Label lblVersion 
       AutoSize        =   -1  'True
       BackStyle       =   0  'Transparent
-      Caption         =   "v1.6"
+      Caption         =   "v1.7"
       BeginProperty Font 
          Name            =   "Tahoma"
          Size            =   11.25
@@ -170,6 +191,14 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" (ByVal hWnd As Long, ByVal lpOperation As String, ByVal lpFile As String, ByVal lpParameters As Long, ByVal lpDirectory As Long, ByVal nShowCmd As Long) As Long
+Private Declare Function GetCursorPos Lib "user32" (lpPoint As Any) As Long
+Private Declare Function WindowFromPoint Lib "user32" (ByVal xPoint As Long, ByVal yPoint As Long) As Long
+Private Declare Sub mouse_event Lib "user32" (ByVal dwFlags As Long, ByVal dx As Long, ByVal dy As Long, ByVal cbuttons As Long, ByVal dwExtraInfo As Long)
+
+Private Const MOUSEEVENTF_LEFTDOWN = &H2
+Private Const MOUSEEVENTF_LEFTUP = &H4
+
+Private m_lngLastButton As Long
 
 'FORM
 '*****
@@ -207,9 +236,9 @@ Private Sub cmdOK_Click(): Me.Hide: End Sub
 '^^^^^^^
 Private Sub imgDonate_Click()
 
-'While this project is open source under the GPL, I kindly ask you not to
-'remove or hide the donation button if you make any modifications to the project.
-'It really goes a long way to help me and my family. Thank you. <3
+    'While this project is open source under the GPL, I kindly ask you not to
+    'remove or hide the donation button if you make any modifications to the project.
+    'It really goes a long way to help me and my family. Thank you. <3
 
     ShellExecute 0&, "open", "https://paypal.me/ModernVB", 0&, 0&, vbNormalFocus
 
@@ -223,6 +252,60 @@ Private Sub imgGithub_Click()
 
 End Sub
 
+'Project Explorer Overlay
+'*************************
+
+'Mouse Move
+'^^^^^^^^^^^
+Private Sub picOverlay_MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
+
+    Dim lngButton As Long
+
+    If X >= CODE_BUTTON_POS And X <= CODE_BUTTON_POS + BUTTON_SIZE Then lngButton = 1 Else _
+    If X >= OBJECT_BUTTON_POS And X <= OBJECT_BUTTON_POS + BUTTON_SIZE Then lngButton = 2 Else _
+    If X >= FOLDER_BUTTON_POS And X <= FOLDER_BUTTON_POS + BUTTON_SIZE - 2 Then lngButton = 3 _
+    Else lngButton = 0
+    
+    If m_lngLastButton = lngButton Then Exit Sub Else m_lngLastButton = lngButton
+    
+    picOverlay.ToolTipText = Choose(lngButton + 1, vbNullString, "View Code", "View Object", "Toggle Folders")
+    
+    RenderButtonBorder picOverlay, lngButton, Choose(lngButton + 1, 0, CODE_BUTTON_POS, OBJECT_BUTTON_POS, FOLDER_BUTTON_POS), BUTTON_TOP, BUTTON_SIZE
+    
+End Sub
+
+'Mouse Up
+'^^^^^^^^^
+Private Sub picOverlay_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+
+    If Button = vbLeftButton Then
+    
+        If X >= CODE_BUTTON_POS And X <= CODE_BUTTON_POS + BUTTON_SIZE Then 'Change to the Code View layout
+            
+            SetCodeLayout
+        
+        ElseIf X >= OBJECT_BUTTON_POS And X <= OBJECT_BUTTON_POS + BUTTON_SIZE Then 'Change to the Object View layout
+        
+            SetObjectLayout
+    
+        ElseIf X >= FOLDER_BUTTON_POS And X <= FOLDER_BUTTON_POS + BUTTON_SIZE - 2 Then 'Click through to the Folder button below
+            
+            g_blnFolderView = Not g_blnFolderView: ReplaceProjectExplorerIcons Me, picOverlay
+            
+            tmrProjectExplorer.Enabled = False: picOverlay.Enabled = False
+                
+            mouse_event MOUSEEVENTF_LEFTDOWN, 0&, 0&, 0&, 0&
+            DoEvents
+            mouse_event MOUSEEVENTF_LEFTUP, 0&, 0&, 0&, 0&
+        
+            picOverlay.Enabled = True: tmrProjectExplorer.Enabled = True
+            
+        End If
+       
+    End If
+    
+End Sub
+
 'TIMERS
 '*******
 
@@ -233,6 +316,28 @@ Private Sub tmrScroll_Timer()
     Static i As Integer
     
     If i = Len(lblSpecial.Tag) Then tmrScroll.Enabled = False Else i = i + 1: lblSpecial.Caption = Left$(lblSpecial.Tag, i)
+
+End Sub
+
+'Project Explorer Overlay
+'^^^^^^^^^^^^^^^^^^^^^^^^^
+Private Sub tmrProjectExplorer_Timer()
+
+    If m_lngLastButton <> 0 Then
+    
+        Dim Pnt&(0 To 1): GetCursorPos Pnt(0)
+        
+        If WindowFromPoint(Pnt(0), Pnt(1)) <> picOverlay.hWnd Then
+            
+            picOverlay.ToolTipText = vbNullString
+            
+            m_lngLastButton = 0: RenderButtonBorder picOverlay, 0
+                
+        End If
+            
+        Exit Sub
+        
+    End If
 
 End Sub
 
@@ -265,7 +370,7 @@ Private Sub tmrIDEStateChange_Timer()
         
     End If
     
-     'Force the standard bar to update on each IDE state change so that it does not go invisible once the main window refreshes
+    'Force the standard bar to update on each IDE state change so that it does not go invisible once the main window refreshes
     If lngResetStandard <> 0 Then
     
         If GetTickCount - lngStdUpdateDelay > 500 Then
