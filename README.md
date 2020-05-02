@@ -46,17 +46,20 @@ To stay up to date on the progress of this project, feel free to follow the disc
 	- Creates and maintains an additional toolbar on the right corner of the screen that allows for all the IDE's panels to be easily shown or hidden on demand, as well as allowing for the custom layouts feature to be activated.
 	- Maintains a separate hybrid Debug toolbar on the left corner of the screen that is used for debugging your project since the main Debug toolbar is completely replaced and the VB6 IDE disables all add-in toolbars when the project is executed.
 	- Allows for hiding unecessary obtrusive toolbars that only take up space when the project is executed, and restores them again once execution is terminated.
+	- Completely replaces the icons on the Project Explorer dialogue by overlaying replacement icons over the toolbar (thanks to Olaf Schmidt for the suggestion and sample code)
 	
-	Additional features are being considered for inclusion such as automatic backups of project files, as well as replacing the default icons for the native Project Explorer. If you'd like to see a new feature added, please post in the VBForums thread above. If you find any issues with the addin, either post in the thread or open an Issue here in Github and I'll look into it.
-		
-	The full source code for the addin is also available in this repository for your enjoyment.
+	If you'd like to see a new feature added, please post in the VBForums thread above. If you find any issues with the addin, either post in the thread or open an Issue here in Github and I'll look into it.
+	
+	The source code for the addin is also available and included for your enjoyment.
 	
 3. Patch files for VB6.exe, VBA6.dll and VBIDE.dll files. Here is the full list of changes enabled by these patches:
 
 	- Replacing native 4-bit resources with high quality 24-bit icons and bitmaps.	
-	- Minor adjustments to VB6.exe's assembly code required to force the IDE to render bitmaps in full 24-bit color depth instead of 4-bit by default.	
+	- Minor adjustments to VB6.exe's assembly code required to force the IDE to render bitmaps in full 24-bit color depth
+      instead of 4-bit by default.	
 	- An integrated manifest file to enable visual styles for controls within the Visual Basic IDE.	
 	- Changes to VBA6.dll to enable custom theme colors instead of the limited 16 color choice that VB6 supports by default	
+	- You can now perform unlimited undo/redo operations within the IDE (up from a maximum of 20 by default)
 	- Finally, many changes to VB's internal dialogs were made to enhance their usability in higher screen resolutions.
 	
 	Instructions to use the patches:
@@ -68,11 +71,8 @@ To stay up to date on the progress of this project, feel free to follow the disc
 	is included in the patches, only a dozen or so handwritten assembly lines and official resource files which
 	can be freely obtained from this address: https://www.microsoft.com/en-us/download/details.aspx?id=35825.
 
-	In order for the patches to work correctly, ensure you're using the final SP6 for VB6 and that your local versions of the VB6 files match the following:
-	
-	- VB6.exe    (v6.0.97.82  - MD5: 5AC021164304F5C90C0820199D4C3E7E)
-	- VBA6.DLL   (v6.0.0.9782 - MD5: CAC38827BCD9F710EAE33F949F96EF96)
-	- VB6IDE.dll (v6.0.92.82  - MD5: 278E2CB9140BEEB92C5397B4D8B86D3A)
+	In order for the patches to work correctly, ensure you're using the final SP6 for VB6, preferably for the English version.
+	While there's now limited support for international languages, only the English version will include updated dialogs.
 	
 4. Registry files containing custom themes and settings for the VB6 IDE that can enhance the look of the software
     and provide optimal configurations for your coding experience, as well as links to a few programming oriented
@@ -93,7 +93,11 @@ and truly have achieved a complete ressurection of the language, with both a mod
 current operating systems and the latest technologies.
 
 For now, we can only dream and hope our efforts might one day inspire such a glorious ressurgence. :)
-	
+
+**Some Screenshots:**
+
+<img src=https://raw.githubusercontent.com/VykosX/ModernVB/master/ModernVB - Code View.jpg>
+<img src=https://raw.githubusercontent.com/VykosX/ModernVB/master/ModernVB - Design View.jpg>
 ---
 
 THIS SOFTWARE AND ALL ACCOMPANYING MATERIALS ARE PROVIDED "AS IS", IN THE HOPES THAT IT PROVES TO BE USEFUL,
