@@ -96,8 +96,10 @@ For now, we can only dream and hope our efforts might one day inspire such a glo
 
 **Some Screenshots:**
 
+<p>
 <img src=https://raw.githubusercontent.com/VykosX/ModernVB/master/ModernVB - Code View.jpg>
 <img src=https://raw.githubusercontent.com/VykosX/ModernVB/master/ModernVB - Design View.jpg>
+</p>
 ---
 
 THIS SOFTWARE AND ALL ACCOMPANYING MATERIALS ARE PROVIDED "AS IS", IN THE HOPES THAT IT PROVES TO BE USEFUL,
