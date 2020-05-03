@@ -763,9 +763,7 @@ AddButton_Err:
     #If DEBUG_MODE = 1 Then
         Echo "Error '" & Err.Number & "' while copying button " & Button.Index & " [" & Button.Caption & "]: " & Err.Description, vbLogEventTypeError
     #End If
-    
-    Stop
-    
+        
     Resume Next
 
 End Sub
